@@ -7,6 +7,7 @@
   - [Routing](/docs/{{version}}/routing)
   - [Middleware](/docs/{{version}}/middleware)
   - [Requests](/docs/{{version}}/requests)
+  - [Repository](/docs/{{version}}/repository)
   - [Responses](/docs/{{version}}/responses)
   - [Validation](/docs/{{version}}/validation)
   - [Error Handling](/docs/{{version}}/errors)
