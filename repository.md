@@ -1,10 +1,10 @@
 # Repository
 
 - [Repository](#repository)
-    - [Introduction](#introduction)
-    - [Working with Repository](#working-with-repository)
-        - [Create a Repository](#create-a-repository)
-        - [Methods](#methods)
+  - [Introduction](#introduction)
+  - [Working with Repository](#working-with-repository)
+    - [Create a Repository](#create-a-repository)
+    - [Methods](#methods)
 
 <a name="introduction"></a>
 
@@ -108,3 +108,298 @@ export default class UserRepository extends Repository {
 - withTrashed()
 
 > {tip} where(field, value) is a shortcut of where(field, '=', value), same as orWhere
+
+#### get()
+
+Execute the query as a "select" statement. Return the collection of resource.
+
+@return Array
+
+```javascript
+const users = await App.make(UserRepository).get();
+```
+
+#### first()
+
+Get the first record
+
+@return Object
+
+```javascript
+const user = await App.make(UserRepository).first();
+```
+
+#### firstOrFail()
+
+Execute the query and get the first result or throw an exception if no resource found
+
+@return Object
+
+```javascript
+const user = await App.make(UserRepository).firstOrFail();
+```
+
+#### paginate(per_page = 15, page = 1)
+
+Paginate the given query
+
+@return LengthAwarePaginator
+
+```javascript
+const users = await App.make(UserRepository)
+  .where("active", 1)
+  .paginate();
+```
+
+#### findById(id)
+
+Find a resource by its primary key.
+
+@return Object
+
+```javascript
+const user = await App.make(UserRepository).findById(10);
+```
+
+#### count()
+
+Retrieve the "count" result of the query.
+
+@return Int
+
+```javascript
+const number_of_activated_user = await App.make(UserRepository)
+  .where("active", 1)
+  .count();
+```
+
+#### where(field, operator, value)
+
+Add a basic "WHERE" clause to the query.
+
+| Operator | Description       |
+| -------- | ----------------- |
+| =        | equal             |
+| <=       | smaller and equal |
+| >=       | larger and equal  |
+| >        | larger            |
+| <        | smaller           |
+| like     | like              |
+| <>       | different         |
+
+```javascript
+const users = await App.make(UserRepository)
+  .where("name", "like", "joe")
+  .get();
+```
+
+#### orWhere(field, operator, value)
+
+Add a basic OR WHERE clause to the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .where("status", 1)
+  .orWhere("status", 3)
+  .get();
+```
+
+#### whereIn(field, array values)
+
+Add an "WHERE IN" clause to the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .whereIn("id", [1, 3])
+  .get();
+```
+
+#### whereNotIn(field, array values)
+
+Add an "WHERE NOT IN" clause to the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .whereNotIn("id", [1, 3])
+  .get();
+```
+
+#### create(attributes)
+
+Save a new model and return the instance.
+
+@return Object
+
+```javascript
+const user = await App.make(UserRepository).create({
+  email: "user@example.com",
+  name: "Joe"
+});
+```
+
+#### update(attributes, id = undefined)
+
+@return Object | Boolean
+
+Update multiple instances that match the where options or update resource with given id
+
+```javascript
+const user = await App.make(UserRepository).update(
+  {
+    email: "user@example.com",
+    name: "Joe"
+  },
+  1
+);
+
+await App.make(UserRepository)
+  .where("active", 1)
+  .update({
+    note: "activated"
+  });
+```
+
+#### firstOrCreate(attributes)
+
+@return Object
+
+Save a new model or create new instance if not exist.
+
+Return first user with name "Joe" if it's existing in database. If not exist create new user with email and name given.
+
+```javascript
+const user = await App.make(UserRepository).firstOrCreate(
+  {
+    name: "Joe"
+  },
+  { email: "user@example.com", name: "Joe" }
+);
+```
+
+#### updateOrCreate(attributes, values)
+
+@return Object
+
+Create or update a record matching the attributes, and fill it with values
+
+If a user with email is `user@example.com` existing in database then update it with email and name give
+
+If a user with email is `user@example.com` is not exist in database then create new one with email and name give
+
+```javascript
+const user = await App.make(UserRepository).firstOrCreate(
+  {
+    email: "user@example.com"
+  },
+  { email: "user@example.com", name: "Joe" }
+);
+```
+
+#### delete()
+
+Delete resources by given condition
+
+@return Boolean
+
+```javascript
+await App.make(UserRepository)
+  .where("status", 0)
+  .delete();
+```
+
+#### deleteById(id)
+
+Delete resource by given id
+
+@return Boolean
+
+```javascript
+await App.make(UserRepository)
+  .where("status", 0)
+  .deleteById(1);
+```
+
+#### skip(offset)
+
+Set the "offset" value of the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .skip(5)
+  .get();
+```
+
+#### take(limit)
+
+Set the "limit" value of the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .skip(5)
+  .take(10)
+  .get();
+```
+
+#### orderBy(field, direction)
+
+Add an "order by" clause to the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .orderBy("id", "DESC")
+  .orderBy("status", "ASC")
+  .get();
+```
+
+#### groupBy(field)
+
+Add an "GROUP BY" clause to the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .groupBy("status")
+  .get();
+```
+
+#### with(relation)
+
+Begin querying a model with eager loading.
+
+```javascript
+const users = await App.make(UserRepository)
+  .with(Post)
+  .get();
+```
+
+#### whereHas(relation, callback)
+
+Add a basic where clause with relation to the query.
+
+```javascript
+const users = await App.make(UserRepository)
+  .whereHas(Post, function(q) {
+    q.where("title", "like", "news").where("status", 1);
+    return q;
+  })
+  .get();
+```
+
+#### withScope(scope)
+
+Add scope to the query
+
+```javascript
+const users = await App.make(UserRepository)
+  .withScope("activated_posts")
+  .get();
+```
+
+#### withTrashed()
+
+Include deleted records
+
+```javascript
+const users = await App.make(UserRepository)
+  .withTrashed()
+  .get();
+```
