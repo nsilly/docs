@@ -1,283 +1,285 @@
-# HTTP Responses
+# Responses
 
-- [Creating Responses](#creating-responses)
-    - [Attaching Headers To Responses](#attaching-headers-to-responses)
-    - [Attaching Cookies To Responses](#attaching-cookies-to-responses)
-    - [Cookies & Encryption](#cookies-and-encryption)
-- [Redirects](#redirects)
-    - [Redirecting To Named Routes](#redirecting-named-routes)
-    - [Redirecting To Controller Actions](#redirecting-controller-actions)
-    - [Redirecting To External Domains](#redirecting-external-domains)
-    - [Redirecting With Flashed Session Data](#redirecting-with-flashed-session-data)
-- [Other Response Types](#other-response-types)
-    - [View Responses](#view-responses)
-    - [JSON Responses](#json-responses)
-    - [File Downloads](#file-downloads)
-    - [File Responses](#file-responses)
-- [Response Macros](#response-macros)
+- [Responses](#responses)
+    - [Creating Responses](#creating-responses)
+            - [Strings & Arrays](#strings--arrays)
+            - [Response Objects](#response-objects)
+    - [Transformer](#transformer)
+        - [Create a transformer](#create-a-transformer)
+        - [Transform an object](#transform-an-object)
+        - [Including Data](#including-data)
+
+> {tip} Documentation for express app response https://expressjs.com/en/4x/api.html#res
 
 <a name="creating-responses"></a>
+
 ## Creating Responses
+
+<a name="strings--arrays"></a>
 
 #### Strings & Arrays
 
-All routes and controllers should return a response to be sent back to the user's browser. Laravel provides several different ways to return responses. The most basic response is returning a string from a route or controller. The framework will automatically convert the string into a full HTTP response:
+All routes should return a response to be sent back to the user's browser. nsilly provides several different ways to return responses. The most basic response is returning a string from a route. The framework will automatically convert the string into a full HTTP response:
 
-    Route::get('/', function () {
-        return 'Hello World';
-    });
+```javascript
+app.get("/string", function(req, res) {
+  res.send("A very long text");
+});
+```
 
-In addition to returning strings from your routes and controllers, you may also return arrays. The framework will automatically convert the array into a JSON response:
+In addition to returning strings from your routes, you may also return arrays. The framework will automatically convert the array into a JSON response:
 
-    Route::get('/', function () {
-        return [1, 2, 3];
-    });
+```javascript
+app.get("/array", function(req, res) {
+  res.json(["an", "array", "of", "items"]);
+});
+```
 
-> {tip} Did you know you can also return [Eloquent collections](/docs/{{version}}/eloquent-collections) from your routes or controllers? They will automatically be converted to JSON. Give it a shot!
+<a name="response-objects"></a>
 
 #### Response Objects
 
-Typically, you won't just be returning simple strings or arrays from your route actions. Instead, you will be returning full `Illuminate\Http\Response` instances or [views](/docs/{{version}}/views).
+Typically, you won't just be returning simple strings or arrays from your route actions. Instead, you will be returning full `Response` with defined structure for your API.
 
-Returning a full `Response` instance allows you to customize the response's HTTP status code and headers. A `Response` instance inherits from the `Symfony\Component\HttpFoundation\Response` class, which provides a variety of methods for building HTTP responses:
+nsilly has built-in `Response` class that is a wrapper and renderer for objects
 
-    Route::get('home', function () {
-        return response('Hello World', 200)
-                      ->header('Content-Type', 'text/plain');
-    });
+> {tip} What is [Transformer](#transformer)?
 
-<a name="attaching-headers-to-responses"></a>
-#### Attaching Headers To Responses
+An example of response that return a collection of user or a single user object
 
-Keep in mind that most response methods are chainable, allowing for the fluent construction of response instances. For example, you may use the `header` method to add a series of headers to the response before sending it back to the user:
+```javascript
+import express from "express";
+import UserTransformer from "../../../app/Transformer/UserTransformer";
+import UserRepository from "../../../app/Repositories/UserRepository";
+import { App } from "@nsilly/container";
+import { AsyncMiddleware } from "@nsilly/support";
+import { ApiResponse } from "@nsilly/response";
 
-    return response($content)
-                ->header('Content-Type', $type)
-                ->header('X-Header-One', 'Header Value')
-                ->header('X-Header-Two', 'Header Value');
+var router = express.Router();
 
-Or, you may use the `withHeaders` method to specify an array of headers to be added to the response:
+async function index(req, res) {
+  const users = await App.make(UserRepository).get();
+  res.json(ApiResponse.collection(users, new UserTransformer()));
+}
 
-    return response($content)
-                ->withHeaders([
-                    'Content-Type' => $type,
-                    'X-Header-One' => 'Header Value',
-                    'X-Header-Two' => 'Header Value',
-                ]);
+async function show(req, res) {
+  const user = await App.make(UserRepository).findById(req.params.id);
+  res.json(ApiResponse.item(user, new UserTransformer()));
+}
 
-<a name="attaching-cookies-to-responses"></a>
-#### Attaching Cookies To Responses
+router.get("/", AsyncMiddleware(index));
+router.get("/:id", AsyncMiddleware(show));
 
-The `cookie` method on response instances allows you to easily attach cookies to the response. For example, you may use the `cookie` method to generate a cookie and fluently attach it to the response instance like so:
+export default router;
+```
 
-    return response($content)
-                    ->header('Content-Type', $type)
-                    ->cookie('name', 'value', $minutes);
+Return a collection of object
 
-The `cookie` method also accepts a few more arguments which are used less frequently. Generally, these arguments have the same purpose and meaning as the arguments that would be given to PHP's native [setcookie](https://secure.php.net/manual/en/function.setcookie.php) method:
+```javascript
+res.json(ApiResponse.collection(collection, new ObjectTransformer()));
+```
 
-    ->cookie($name, $value, $minutes, $path, $domain, $secure, $httpOnly)
+Return a single object
 
-Alternatively, you can use the `Cookie` facade to "queue" cookies for attachment to the outgoing response from your application. The `queue` method accepts a `Cookie` instance or the arguments needed to create a `Cookie` instance. These cookies will be attached to the outgoing response before it is sent to the browser:
+```javascript
+res.json(ApiResponse.item(object, new ObjectTransformer()));
+```
 
-    Cookie::queue(Cookie::make('name', 'value', $minutes));
+Result with pagination
 
-    Cookie::queue('name', 'value', $minutes);
+```javascript
+const items = App.make(ObjectRepository).paginate();
 
-<a name="cookies-and-encryption"></a>
-#### Cookies & Encryption
+res.json(ApiResponse.paginate(items, new ObjectTransformer()));
+```
 
-By default, all cookies generated by Laravel are encrypted and signed so that they can't be modified or read by the client. If you would like to disable encryption for a subset of cookies generated by your application, you may use the `$except` property of the `App\Http\Middleware\EncryptCookies` middleware, which is located in the `app/Http/Middleware` directory:
+Result with a success message
 
-    /**
-     * The names of the cookies that should not be encrypted.
-     *
-     * @var array
-     */
-    protected $except = [
-        'cookie_name',
-    ];
+```javascript
+res.json(ApiResponse.success());
+```
 
-<a name="redirects"></a>
-## Redirects
+Result with an array
 
-Redirect responses are instances of the `Illuminate\Http\RedirectResponse` class, and contain the proper headers needed to redirect the user to another URL. There are several ways to generate a `RedirectResponse` instance. The simplest method is to use the global `redirect` helper:
+```javascript
+res.json(ApiResponse.array(["an", "array", "of", "items"]));
+```
 
-    Route::get('dashboard', function () {
-        return redirect('home/dashboard');
-    });
+<a name="transformer"></a>
 
-Sometimes you may wish to redirect the user to their previous location, such as when a submitted form is invalid. You may do so by using the global `back` helper function. Since this feature utilizes the [session](/docs/{{version}}/session), make sure the route calling the `back` function is using the `web` middleware group or has all of the session middleware applied:
+## Transformer
 
-    Route::post('user/profile', function () {
-        // Validate the request...
+Transformer provides a presentation and transformation layer for complex data output, the like found in RESTful APIs, and works really well with JSON
 
-        return back()->withInput();
-    });
+- Create a “barrier” between source data and output, so schema changes do not affect users
 
-<a name="redirecting-named-routes"></a>
-### Redirecting To Named Routes
+- Systematic type-casting of data, to avoid foreach()ing through and (bool)ing everything
 
-When you call the `redirect` helper with no parameters, an instance of `Illuminate\Routing\Redirector` is returned, allowing you to call any method on the `Redirector` instance. For example, to generate a `RedirectResponse` to a named route, you may use the `route` method:
+- Include (a.k.a embedding, nesting or side-loading) relationships for complex data structures
 
-    return redirect()->route('login');
+- Support the pagination of data results, for small and large data sets alike
 
-If your route has parameters, you may pass them as the second argument to the `route` method:
+- Generally ease the subtle complexities of outputting data in a non-trivial API
 
-    // For a route with the following URI: profile/{id}
+<a name="create-a-transformer"></a>
 
-    return redirect()->route('profile', ['id' => 1]);
+### Create a transformer
 
-#### Populating Parameters Via Eloquent Models
+All transformer are located in `app/Transformers` directory. You can create new one by yourself or it will be created automatically by run following command:
 
-If you are redirecting to a route with an "ID" parameter that is being populated from an Eloquent model, you may pass the model itself. The ID will be extracted automatically:
+```
+yarn command make:transformer {name}
+```
 
-    // For a route with the following URI: profile/{id}
+Example
 
-    return redirect()->route('profile', [$user]);
+```
+yarn command make:transformer UserTransformer
+```
 
-If you would like to customize the value that is placed in the route parameter, you should override the `getRouteKey` method on your Eloquent model:
+<a name="transform-an-object"></a>
 
-    /**
-     * Get the value of the model's route key.
-     *
-     * @return mixed
-     */
-    public function getRouteKey()
-    {
-        return $this->slug;
+### Transform an object
+
+By return an object via `transform` function we can transform the object that passed to `Response`
+
+```javascript
+import Transformer from "./Transformer";
+
+export default class UserTransformer extends Transformer {
+  transform(model) {
+    return {
+      id: model.id,
+      email: model.email,
+      status: model.status,
+      created_at: model.created_at,
+      updated_at: model.updated_at
+    };
+  }
+}
+```
+
+<a name="incliding-data"></a>
+
+### Including Data
+
+Your transformer at this point is mainly just giving you a method to handle array conversion from your data source (or whatever your model is returning) to a simple array. Including data in an intelligent way can be tricky as data can have all sorts of relationships. Many developers try to find a perfect balance between not making too many HTTP requests and not downloading more data than they need to, so flexibility is also important.
+
+Setup project
+
+```javascript
+// app/Transformers/UserTransformer.js
+import Transformer from "./Transformer";
+
+export default class UserTransformer extends Transformer {
+  transform(model) {
+    return {
+      id: model.id,
+      email: model.email,
+      status: model.status,
+      created_at: model.created_at,
+      updated_at: model.updated_at
+    };
+  }
+
+  includePosts(model) {
+    return this.collection(model.posts, new PostTransformer());
+  }
+}
+```
+
+```javascript
+// app/Transformers/PostTransformer.js
+import Transformer from "./Transformer";
+
+export default class PostTransformer extends Transformer {
+  transform(model) {
+    return {
+      id: model.id,
+      title: model.title,
+      content: model.content,
+      created_at: model.created_at,
+      updated_at: model.updated_at
+    };
+  }
+}
+```
+
+```javascript
+//app/Repositories/UserRepository.js
+import { Repository } from "./Repository";
+import User from '../Models/User';
+
+export default class UserRepository extends Repository {
+  Models() {
+    return User;
+  }
+}
+```
+
+```javascript
+//app/Models/User.js
+import Sequelize from "sequelize";
+import sequelize from "../../config/sequelize";
+import Post from "./Post";
+
+const User = sequelize.define(
+  "user",
+  {
+    email: {
+      type: Sequelize.STRING,
+      defaultValue: ""
+    },
+    password: {
+      type: Sequelize.STRING,
+      defaultValue: ""
     }
+  },
+  {
+    tableName: "users",
+    paranoid: false
+  }
+);
 
-<a name="redirecting-controller-actions"></a>
-### Redirecting To Controller Actions
+User.associate = models => {
+  User.hasMany(Post);
+};
 
-You may also generate redirects to [controller actions](/docs/{{version}}/controllers). To do so, pass the controller and action name to the `action` method. Remember, you do not need to specify the full namespace to the controller since Laravel's `RouteServiceProvider` will automatically set the base controller namespace:
+export default User;
+```
 
-    return redirect()->action('HomeController@index');
+```javascript
+//app/Models/Post.js
+import Sequelize from "sequelize";
+import sequelize from "../../config/sequelize";
 
-If your controller route requires parameters, you may pass them as the second argument to the `action` method:
-
-    return redirect()->action(
-        'UserController@profile', ['id' => 1]
-    );
-
-<a name="redirecting-external-domains"></a>
-### Redirecting To External Domains
-
-Sometimes you may need to redirect to a domain outside of your application. You may do so by calling the `away` method, which creates a `RedirectResponse` without any additional URL encoding, validation, or verification:
-
-    return redirect()->away('https://www.google.com');
-
-<a name="redirecting-with-flashed-session-data"></a>
-### Redirecting With Flashed Session Data
-
-Redirecting to a new URL and [flashing data to the session](/docs/{{version}}/session#flash-data) are usually done at the same time. Typically, this is done after successfully performing an action when you flash a success message to the session. For convenience, you may create a `RedirectResponse` instance and flash data to the session in a single, fluent method chain:
-
-    Route::post('user/profile', function () {
-        // Update the user's profile...
-
-        return redirect('dashboard')->with('status', 'Profile updated!');
-    });
-
-After the user is redirected, you may display the flashed message from the [session](/docs/{{version}}/session). For example, using [Blade syntax](/docs/{{version}}/blade):
-
-    @if (session('status'))
-        <div class="alert alert-success">
-            {{ session('status') }}
-        </div>
-    @endif
-
-<a name="other-response-types"></a>
-## Other Response Types
-
-The `response` helper may be used to generate other types of response instances. When the `response` helper is called without arguments, an implementation of the `Illuminate\Contracts\Routing\ResponseFactory` [contract](/docs/{{version}}/contracts) is returned. This contract provides several helpful methods for generating responses.
-
-<a name="view-responses"></a>
-### View Responses
-
-If you need control over the response's status and headers but also need to return a [view](/docs/{{version}}/views) as the response's content, you should use the `view` method:
-
-    return response()
-                ->view('hello', $data, 200)
-                ->header('Content-Type', $type);
-
-Of course, if you do not need to pass a custom HTTP status code or custom headers, you should use the global `view` helper function.
-
-<a name="json-responses"></a>
-### JSON Responses
-
-The `json` method will automatically set the `Content-Type` header to `application/json`, as well as convert the given array to JSON using the `json_encode` PHP function:
-
-    return response()->json([
-        'name' => 'Abigail',
-        'state' => 'CA'
-    ]);
-
-If you would like to create a JSONP response, you may use the `json` method in combination with the `withCallback` method:
-
-    return response()
-                ->json(['name' => 'Abigail', 'state' => 'CA'])
-                ->withCallback($request->input('callback'));
-
-<a name="file-downloads"></a>
-### File Downloads
-
-The `download` method may be used to generate a response that forces the user's browser to download the file at the given path. The `download` method accepts a file name as the second argument to the method, which will determine the file name that is seen by the user downloading the file. Finally, you may pass an array of HTTP headers as the third argument to the method:
-
-    return response()->download($pathToFile);
-
-    return response()->download($pathToFile, $name, $headers);
-
-    return response()->download($pathToFile)->deleteFileAfterSend(true);
-
-> {note} Symfony HttpFoundation, which manages file downloads, requires the file being downloaded to have an ASCII file name.
-
-#### Streamed Downloads
-
-Sometimes you may wish to turn the string response of a given operation into a downloadable response without having to write the contents of the operation to disk. You may use the `streamDownload` method in this scenario. This method accepts a callback, file name, and an optional array of headers as its arguments:
-
-    return response()->streamDownload(function () {
-        echo GitHub::api('repo')
-                    ->contents()
-                    ->readme('laravel', 'laravel')['contents'];
-    }, 'laravel-readme.md');
-
-<a name="file-responses"></a>
-### File Responses
-
-The `file` method may be used to display a file, such as an image or PDF, directly in the user's browser instead of initiating a download. This method accepts the path to the file as its first argument and an array of headers as its second argument:
-
-    return response()->file($pathToFile);
-
-    return response()->file($pathToFile, $headers);
-
-<a name="response-macros"></a>
-## Response Macros
-
-If you would like to define a custom response that you can re-use in a variety of your routes and controllers, you may use the `macro` method on the `Response` facade. For example, from a [service provider's](/docs/{{version}}/providers) `boot` method:
-
-    <?php
-
-    namespace App\Providers;
-
-    use Illuminate\Support\ServiceProvider;
-    use Illuminate\Support\Facades\Response;
-
-    class ResponseMacroServiceProvider extends ServiceProvider
-    {
-        /**
-         * Register the application's response macros.
-         *
-         * @return void
-         */
-        public function boot()
-        {
-            Response::macro('caps', function ($value) {
-                return Response::make(strtoupper($value));
-            });
-        }
+const Post = sequelize.define(
+  "post",
+  {
+    title: {
+      type: Sequelize.STRING,
+      defaultValue: ""
+    },
+    content: {
+      type: Sequelize.STRING,
+      defaultValue: ""
     }
+  },
+  {
+    tableName: "posts",
+    paranoid: false
+  }
+);
 
-The `macro` function accepts a name as its first argument, and a Closure as its second. The macro's Closure will be executed when calling the macro name from a `ResponseFactory` implementation or the `response` helper:
+export default User;
+```
 
-    return response()->caps('foo');
+And now to return user with their posts
+
+```javascript
+const users = App.make(UserRepository)
+  .with(Post)
+  .get();
+
+res.json(ApiResponse.collection(users, new UserTransformer(["post"])));
+```
