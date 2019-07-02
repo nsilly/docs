@@ -12,7 +12,7 @@
   - [Validation](/docs/{{version}}/validation)
   - [Error Handling](/docs/{{version}}/errors)
   - [Logging](/docs/{{version}}/logging)
-- ## Security
+<!-- - ## Security
   - [Authentication](/docs/{{version}}/authentication)
   - [API Authentication](/docs/{{version}}/passport)
   - [Authorization](/docs/{{version}}/authorization)
@@ -53,5 +53,4 @@
   - [Horizon](/docs/{{version}}/horizon)
   - [Passport](/docs/{{version}}/passport)
   - [Scout](/docs/{{version}}/scout)
-  - [Socialite](/docs/{{version}}/socialite)
-xcep
+  - [Socialite](/docs/{{version}}/socialite) -->
